@@ -1,6 +1,10 @@
 package domain
 
-import "fmt"
+import (
+	"cirrostratus-secrets-core/common"
+)
+
+const secretIDSeparator = "/"
 
 // SecretID Identificador generado a través de atributos de la structura
 type SecretID struct {
@@ -9,24 +13,44 @@ type SecretID struct {
 	CreatedBy string
 }
 
-// Encode Genera identificador único del Secreto
-func (s SecretID) Encode() (string, error) {
-	// FIXME: Buscar algoritmo de codificación
-	return fmt.Sprintf("%s:%s:%d", s.Name, s.CreatedBy, s.CreatedAt), nil
+// Hash Genera identificado único del ID del secreto
+func (s SecretID) Hash() (string, error) {
+	epoch := common.EpochFrom(s.CreatedAt, common.InMillis)
+	return HashValues(s.Name, epoch.AsMillisString(), s.CreatedBy), nil
 }
 
-// Decode Crea instancia de ID a partir de una cadena de texto
-func (s SecretID) Decode(r string) (ID, error) {
-	// FIXME: Buscar algoritmo de decodificación
-	return SecretID{}, nil
+// Encode Codifica en base 64 atributos del ID del secreto
+func (s SecretID) Encode() (string, error) {
+	epoch := common.EpochFrom(s.CreatedAt, common.InMillis)
+	encoded := EncodeValuesToB64(secretIDSeparator, s.Name, epoch.AsMillisString(), s.CreatedBy)
+	return encoded, nil
+}
+
+// DecodeSecret Decodifica string hexadecimal y genera instancia de Secreto
+func DecodeSecret(r string) (*SecretID, error) {
+	parts, e := Decode64ToValues(secretIDSeparator, r)
+	if e != nil {
+		return nil, e
+	}
+	createdAt, e := common.ParseEpoch(parts[1], common.InMillis)
+	if e != nil {
+		return nil, e
+	}
+	name := parts[0]
+	createdBy := parts[2]
+	return &SecretID{
+		Name:      name,
+		CreatedAt: createdAt.AsMillis(),
+		CreatedBy: createdBy,
+	}, nil
 }
 
 // Secret Contiene datos del secreto
 type Secret struct {
-	ID             string
-	Name           string
-	EncryptedValue string
-	KeyID          string
-	Auditory       Auditory
-	Enabled        bool
+	ID          string
+	Name        string
+	Value       string
+	PublicKeyID string
+	Auditory    Auditory
+	Enabled     bool
 }

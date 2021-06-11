@@ -2,6 +2,7 @@ package application
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 )
@@ -44,22 +45,24 @@ type ComponentFactory func(ComponentContainer) (interface{}, error)
 
 // ComponentManager Administra e instancia los componentes
 type ComponentManager interface {
-	Register(string, Component) error
-	GetInstance(string) (interface{}, error)
+	Register(string, ComponentFactory) error
+	GetComponent(string) (interface{}, error)
 }
 
-// DefaultComponentManager Implementación por defecto de ComponentManager
-type DefaultComponentManager struct {
-	Container ComponentContainer
+var once sync.Once
+var instance *defaultComponentManager
+
+type defaultComponentManager struct {
+	container ComponentContainer
 }
 
 // Register Registra un componente en el contenedor
-func (c *DefaultComponentManager) Register(name string, factory ComponentFactory) error {
+func (c *defaultComponentManager) Register(name string, factory ComponentFactory) error {
 	logrus.WithFields(
 		logrus.Fields{
 			"componentName": name,
 		}).Info("Registrando componente")
-	if e := c.Container.add(name, factory); e != nil {
+	if e := c.container.add(name, factory); e != nil {
 		return e
 	}
 	logrus.WithFields(
@@ -70,7 +73,19 @@ func (c *DefaultComponentManager) Register(name string, factory ComponentFactory
 	return nil
 }
 
-//GetInstance Retorna un instancia del componente registrado
-func (c *DefaultComponentManager) GetInstance(name string) (interface{}, error) {
-	return c.Container.Get(name)
+// GetComponent Retorna un instancia del componente registrado
+func (c *defaultComponentManager) GetComponent(name string) (interface{}, error) {
+	return c.container.Get(name)
+}
+
+func GetInstance() *defaultComponentManager {
+	once.Do(func() {
+		instance = &defaultComponentManager{
+			container: ComponentContainer{
+				Factories: map[string]ComponentFactory{},
+				Cache:     make(map[string]interface{}),
+			},
+		}
+	})
+	return instance
 }
