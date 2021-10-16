@@ -1,0 +1,29 @@
+version: 3
+
+tasks:
+  default:
+    desc: Setup dependency projects and tools
+    cmds:
+      - |
+        go mod verify
+        go mod download
+        go install github.com/golang/mock/mockgen@v1.6.0
+        echo Remember add your GOBIN environment variable to your PATH
+    silent: true
+  mock:
+    desc: Generate mock code for unit tests
+    cmds:
+      - |
+        mockgen -source=ports/repository.go -destination=mock/repository.go -package=mock
+        mockgen -source=ports/service.go -destination=mock/service.go -package=mock
+    sources:
+      - ./*.go
+    generates:
+      - ./mock/*.go
+    method: checksum
+  test:
+    desc: Run all unit tests
+    deps: [mock]
+    cmds:
+      - |
+        go test ./...

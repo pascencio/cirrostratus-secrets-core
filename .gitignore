@@ -1,3 +1,4 @@
 go.sum
 .history
 .pytest_cache
+.task
